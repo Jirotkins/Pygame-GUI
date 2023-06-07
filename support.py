@@ -34,6 +34,7 @@ def import_csv_layout(path):
         level = reader(map, delimiter=",")
         for row in level:
             terrain_map.append(list(row))
+
         return terrain_map
     
 def import_cut_graphics(path):
@@ -67,3 +68,12 @@ def draw_text(text, font, color, screen, pos):
     image = font.render(text, True, color)
     screen.blit(image, pos)
     
+def get_highscore(score):
+    with open("pg-data/0/score.txt", "r") as file:
+        highscore = int(file.read())
+    if score > highscore:
+        highscore = score
+    with open("pg-data/0/score.txt", "w") as file:
+        file.write(str(highscore))
+    
+    return highscore

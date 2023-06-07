@@ -4,7 +4,7 @@ from settings import tile_size, screen_width, screen_height
 from player import Player
 from support import import_csv_layout, import_cut_graphics
 from enemy import Enemy
-from support import import_folder, draw_text
+from support import import_folder, draw_text, get_highscore
 from game_data import levels
 from UI import UI
 from particles import ParticleEffect
@@ -15,6 +15,7 @@ class Level:
         self.world_offset = 0
         self.current_x = 0
         self.offset = 0
+        self.score = 0
 
         #audio
         self.coin_sound = pygame.mixer.Sound("assets/audio/effects/coin.wav")
@@ -23,7 +24,6 @@ class Level:
         self.level_music.play(loops=-1)
 
         #game over
-        self.over = False
         self.font_small = pygame.font.Font("assets/UI/ARCADEPI.TTF", 30)
         self.font_big = pygame.font.Font("assets/UI/ARCADEPI.TTF", 50)
 
@@ -42,6 +42,7 @@ class Level:
         self.end = pygame.sprite.GroupSingle()
         self.start = pygame.sprite.GroupSingle()
         self.player_setup(player_layout)
+        self.over = self.player.sprite.over
 
         #dust particles and enemy explosion
         self.dust_sprite = pygame.sprite.GroupSingle()
@@ -127,10 +128,10 @@ class Level:
         player_x = player.rect.centerx
         direction_x = player.direction.x
 
-        if player_x < screen_width/3 and direction_x < 0 and not self.over:
+        if player_x < screen_width/3 and direction_x < 0 and not self.player.sprite.over:
             self.world_offset = 8
             player.speed = 0
-        elif player_x > (screen_width/3)*2 and direction_x > 0 and not self.over:
+        elif player_x > (screen_width/3)*2 and direction_x > 0 and not self.player.sprite.over:
             self.world_offset = -8
             player.speed = 0
         else:
@@ -213,13 +214,18 @@ class Level:
 
     def check_death(self):
         if self.player.sprite.rect.top > screen_height or self.player.sprite.cur_health <= 0:
-            self.over = True
+            self.player.sprite.over, self.over = True, True
             self.game_over()
 
     def game_over(self):
         draw_text("GAME OVER!", self.font_big, "WHITE", self.display_surface, (screen_width/2 - 170, screen_height/2))
         draw_text("press ESC to return to menu", self.font_small, "WHITE", self.display_surface, (screen_width/2-280, screen_height/2 + 60))
 
+    def game_won(self):
+        draw_text("YOU WON!", self.font_big, "WHITE", self.display_surface, (screen_width/2 - 140, screen_height/2))
+        draw_text("press ESC to return to menu", self.font_small, "WHITE", self.display_surface, (screen_width/2-280, screen_height/2 + 60))
+        draw_text(f"SCORE: {self.score}", self.font_big, "WHITE", self.display_surface, (screen_width/2 - 160, screen_height/2 + 120))
+        draw_text(f"HIGHSCORE: {get_highscore(self.score)}", self.font_big, "WHITE", self.display_surface, (screen_width/2 - 315, screen_height/2 + 180))
 
     def get_input(self):
         keys = pygame.key.get_pressed()
@@ -227,10 +233,11 @@ class Level:
         if keys[pygame.K_ESCAPE]:
             self.create_overworld(self.current_level)
 
-
     def check_win(self):
         if pygame.sprite.spritecollide(self.player.sprite, self.end, False):
-            self.create_overworld(self.current_level)
+            self.get_score()
+            self.player.sprite.over, self.over = True, True
+            self.game_won()
 
     def check_coin_collisions(self):
         collided_coins = pygame.sprite.spritecollide(self.player.sprite, self.coin_sprites, True)
@@ -238,6 +245,7 @@ class Level:
             self.coin_sound.play()
             for coin in collided_coins:
                 self.coins += 1
+                self.score += 100
 
     def check_enemy_collisions(self):
         enemy_collisions = pygame.sprite.spritecollide(self.player.sprite, self.enemy_sprites, False)
@@ -253,11 +261,21 @@ class Level:
                     explosion_sprite = ParticleEffect(enemy.rect.center, "explosion")
                     self.explosion_sprites.add(explosion_sprite)
                     enemy.kill()
-
+                    self.score += 200
                 else:
                     self.player.sprite.get_damage(20)
 
-    def run(self):
+    def get_time(self):
+        draw_text(f"{self.time}", self.font_small, "WHITE", self.display_surface, (24, screen_height - 30))
+
+    def get_score(self):
+        if not self.over:
+            self.score += self.player.sprite.cur_health * 10
+            self.score -= int(self.time * 10)
+            if self.score < 0:
+                self.score = 0
+
+    def run(self, time):
         #player input
         self.get_input()
 
@@ -284,25 +302,25 @@ class Level:
         self.coin_sprites.update(self.world_offset)
         self.coin_sprites.draw(self.display_surface)
 
-        #player sprites
-        self.end.update(self.world_offset)
-        self.end.draw(self.display_surface)
-        self.start.update(self.world_offset)
-        self.start.draw(self.display_surface)
-
-        self.scroll_x()
-
         #player
         self.player.update()
         self.horizontal_collision()
         self.get_player_floor()
         self.vertical_collision()
         self.create_landing_dust()
-        self.check_death()
-        self.check_win()
         self.check_coin_collisions()
         self.check_enemy_collisions()
         self.player.draw(self.display_surface)
+
+        #player sprites
+        self.end.update(self.world_offset)
+        self.end.draw(self.display_surface)
+        self.start.update(self.world_offset)
+        self.start.draw(self.display_surface)
+        self.check_death()
+        self.check_win()
+
+        self.scroll_x()
 
         #dust particles
         self.dust_sprite.update(self.world_offset)
@@ -310,3 +328,7 @@ class Level:
 
         #UI coins
         self.ui.show_coins(self.coins, self.max_coins)
+
+        #time
+        self.time = time
+        self.get_time()

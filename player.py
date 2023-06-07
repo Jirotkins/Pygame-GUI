@@ -44,6 +44,7 @@ class Player(pygame.sprite.Sprite):
         self.on_right = False
         self.floored = False
         self.on_ceiling = False
+        self.over = False
 
     def import_character_assets(self):
         self.sprites = load_sprites("assets/MainCharacters/MaskDude", 32, 32, True)
@@ -118,19 +119,18 @@ class Player(pygame.sprite.Sprite):
     def get_input(self):
         keys = pygame.key.get_pressed()
 
-        if self.cur_health > 0:
-            if keys[pygame.K_LEFT]:
-                self.view_direction = "left"
-                self.direction.x = -1
-            elif keys[pygame.K_RIGHT]:
-                self.view_direction = "right"
-                self.direction.x = 1
-            else:
-                self.direction.x = 0
+        if keys[pygame.K_LEFT] and not self.over:
+            self.view_direction = "left"
+            self.direction.x = -1
+        elif keys[pygame.K_RIGHT] and not self.over:
+            self.view_direction = "right"
+            self.direction.x = 1
+        else:
+            self.direction.x = 0
 
-            if keys[pygame.K_UP] and self.floored:
-                self.jump()
-                self.create_jump_particles(self.rect.midbottom)
+        if keys[pygame.K_UP] and self.floored and not self.over:
+            self.jump()
+            self.create_jump_particles(self.rect.midbottom)
 
     def apply_gravity(self):
         self.direction.y += self.gravity

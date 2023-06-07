@@ -9,6 +9,9 @@ class Game:
         #audio
         self.overworld_music = pygame.mixer.Sound("assets/audio/overworld.wav")
         
+        #timer
+        self.time = 0
+
         #game attributes
         self.max_level = 3
         
@@ -17,11 +20,11 @@ class Game:
         self.status = "overworld"
         self.overworld_music.play(loops=-1)
 
-
     def create_level(self, current_level):
         self.level = Level(current_level, screen, self.create_overworld)
         self.status = "level"
         self.overworld_music.stop()
+        self.time = 0
 
     def create_overworld(self, current_level):
         self.overworld = Overworld(current_level,self.max_level,screen, self.create_level)
@@ -33,7 +36,9 @@ class Game:
         if self.status == "overworld":
             self.overworld.run()
         else:
-            self.level.run()
+            if not self.level.over:
+                self.time += 1 / 60
+            self.level.run(round(self.time, 2))
 
 pygame.init()
 fps = 60
